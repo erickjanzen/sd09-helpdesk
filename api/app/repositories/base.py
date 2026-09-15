@@ -22,7 +22,7 @@ class RepositorioBase(Generic[T]):
         return objeto
 
     def obter_por_id(self, id: int) -> T | None:
-        return self.db;get(self.model, id)
+        return self.db.get(self.model, id)
 
     def remover(self, objeto: T) -> None:
         self.db.delete(objeto)

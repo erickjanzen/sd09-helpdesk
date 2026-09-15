@@ -1,8 +1,8 @@
-"""usuarios e categorias
+"""categorias e usuarios
 
-Revision ID: ced0280ee7d8
+Revision ID: 66aaa6e4e05f
 Revises: 
-Create Date: 2026-09-11 20:16:45.511780
+Create Date: 2026-09-14 19:33:37.658179
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ced0280ee7d8'
+revision: str = '66aaa6e4e05f'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
