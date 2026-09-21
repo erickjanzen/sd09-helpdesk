@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from sqlalchemy.orm import Session
 
 from app.core.enums import Papel, StatusChamado
@@ -5,7 +7,7 @@ from app.core.exceptions import NaoEncontradoError, PermissaoNegadaError, RegraN
 from app.core.tempo import agora
 from app.models.ticket import Ticket
 from app.repositories.ticket_repository import TicketRepository
-from app.schemas.ticket_schema import TicketCriar, TicketDefinirPrioridade
+from app.schemas.ticket_schema import TicketAssociar, TicketCancelar, TicketCriar, TicketDefinirPrioridade, TicketResolver
 from app.services.usuario_service import UsuarioService
 
 
@@ -15,11 +17,19 @@ class TicketService:
         self.ticket_repository = TicketRepository(db)
         self.usuario_service = UsuarioService(db)
 
+    def __gerar_numero_protocolo(self, ticket: Ticket) -> str:
+        data_criacao = ticket.data_criacao.strftime("%Y%m%d") #ANO MES DIA
+        numero = str(ticket.id).zfill(5) # ticket 1 => 00001
+        return f"{data_criacao}-{numero}"
+
     def criar(self, dado: TicketCriar) -> Ticket:
         # Validar que o usuário existe efetivamente
         usuario = self.usuario_service.obter_por_id(dado.id_usuario)
         if usuario.papel != Papel.SOLICITANTE:
             raise PermissaoNegadaError("Tickets podem ser abertos somente por SOLICITANTE")
+
+        # gerar um numero protocolo fake
+        numero_protocolo_fake = str(uuid4())[:20]
 
         ticket = Ticket(
             titulo=dado.titulo,
@@ -27,8 +37,10 @@ class TicketService:
             setor=dado.setor,
             solicitante_id=dado.id_usuario,
             status=StatusChamado.ABERTO,
-            numero_protocolo="20260918-00001"
+            numero_protocolo=numero_protocolo_fake 
         )
+        self.ticket_repository.adicionar(ticket)
+
         self.ticket_repository.adicionar(ticket)
         self.db.commit()
         return ticket
@@ -55,5 +67,57 @@ class TicketService:
         ticket.atendente_id = dado.id_usuario
         ticket.data_atualizacao = agora()
         # salvar as modificacoes do ticket
+        self.db.commit()
+        return ticket
+
+
+    def associar(self, id: int, dado: TicketAssociar) -> Ticket:
+        ticket = self.obter_por_id(id)
+        usuario = self.usuario_service.obter_por_id(dado.id_usuario)
+        if usuario.papel != Papel.ATENDENTE:
+            raise PermissaoNegadaError("Somente tickets abertos podem ser associados")
+
+        ticket.atendente_id = dado.id_usuario
+        ticket.status = StatusChamado.EM_ANALISE
+        ticket.data_atualizacao = agora()
+        self.db.commit()
+
+        return ticket
+
+    def listar(self) -> list[Ticket]:
+        return self.ticket_repository.listar_todos()
+
+    def resolver(self, id: int, dado: TicketResolver) -> Ticket:
+        ticket = self.obter_por_id(id)
+        usuario = self.usuario_service.obter_por_id(dado.id_usuario)
+        if usuario.papel != Papel.ATENDENTE:
+            raise PermissaoNegadaError("Somente usuário com papel ATENDENTE pode resolver o ticket")
+
+        if ticket.atendente_id != dado.id_usuario:
+            raise PermissaoNegadaError("Somente o atendente associado pode resolver este ticket")
+
+        if ticket.status != StatusChamado.EM_ANALISE:
+            raise RegraNegocioError("Somente tickets em análise podem ser resolvidos")
+
+        ticket.descricao_solucao = dado.descricao
+        ticket.status = StatusChamado.RESOLVIDO
+        ticket.data_atualizacao = agora()
+        self.db.commit()
+
+        return ticket
+
+    def cancelar(self, id: int, dado: TicketCancelar) -> Ticket:
+        ticket = self.obter_por_id(id)
+        uusario = self.usuario_service.obter_por_id(dado.id_usuario)
+
+        if ticket.status == StatusChamado.RESOLVIDO:
+            raise RegraNegocioError("Tickets resolvidos não podem ser cancelados")
+
+        if ticket.status == StatusChamado.CANCELADO:
+            raise RegraNegocioError("Ticket ja esta cancelado")
+
+        ticket.motivo_cancelamento = dado.motivo
+        ticket. status = StatusChamado. CANCELADO
+        ticket.data_atualizacao = agora()
         self.db.commit()
         return ticket
