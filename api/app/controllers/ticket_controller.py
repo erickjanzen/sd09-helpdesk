@@ -12,17 +12,21 @@ router = APIRouter(prefix="/tickets", tags=["Tickets"])
 def criar(dado: TicketCriar, db: DbSession):
     return TicketService(db).criar(dado)
 
+
 @router.post("/{id}/definir-prioridade", response_model=TicketResposta)
 def definir_prioridade(id: int, dado: TicketDefinirPrioridade, db: DbSession):
     return TicketService(db).definir_prioridade(id, dado)
+
 
 @router.post("/{id}/associar", response_model=TicketResposta)
 def associar(id: int, dado: TicketAssociar, db: DbSession):
     return TicketService(db).associar(id, dado)
 
+
 @router.get("/{id}", response_model=TicketResposta)
 def obter_por_id(id: int, db: DbSession):
     return TicketService(db).obter_por_id(id)
+
 
 @router.get("", response_model=list[TicketResposta])
 def obter_todos(db: DbSession):

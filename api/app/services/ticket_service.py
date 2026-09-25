@@ -18,9 +18,10 @@ class TicketService:
         self.usuario_service = UsuarioService(db)
 
     def __gerar_numero_protocolo(self, ticket: Ticket) -> str:
-        data_criacao = ticket.data_criacao.strftime("%Y%m%d") #ANO MES DIA
+        data_criacao = ticket.data_criacao.strftime("%Y%m%d") #ANOMESDIA
         numero = str(ticket.id).zfill(5) # ticket 1 => 00001
         return f"{data_criacao}-{numero}"
+
 
     def criar(self, dado: TicketCriar) -> Ticket:
         # Validar que o usuário existe efetivamente
@@ -37,11 +38,19 @@ class TicketService:
             setor=dado.setor,
             solicitante_id=dado.id_usuario,
             status=StatusChamado.ABERTO,
-            numero_protocolo=numero_protocolo_fake 
+            numero_protocolo=numero_protocolo_fake
         )
         self.ticket_repository.adicionar(ticket)
 
-        self.ticket_repository.adicionar(ticket)
+        # Envia o INSERT para o banco de dados sem fazer o commit.
+        # Depois desta chamada o id do ticket estará disponível pois o banco 
+        # de dados já gerou o id com AUTO_INCREMENT
+        self.db.flush()
+
+        numero_protocolo = self.__gerar_numero_protocolo(ticket)
+
+        ticket.numero_protocolo = numero_protocolo
+
         self.db.commit()
         return ticket
 
@@ -56,26 +65,28 @@ class TicketService:
         ticket = self.obter_por_id(id)
         # definir a prioridade do ticket
 
-        # buscar o usuario do bano de dados, validando que o mesmo existe
+        # buscar o usuário do banco de dados, validando que o mesmo existe
         usuario = self.usuario_service.obter_por_id(dado.id_usuario)
-        # verificar que o usuario tem o papel de ATENDENTE, pois o ticket pode ser resolvido somente por um ATENDENTE
+        # verificar que o usuário tem o papel de ATENDENTE, pois o ticket pode ser 
+        # resolvido somente por um ATENDENTE
         if usuario.papel != Papel.ATENDENTE:
             raise PermissaoNegadaError("Ticket pode ser definido prioridade somente por ATENDENTE")
 
         ticket.prioridade = dado.prioridade
-        # definir quem será o atendente do chamado
-        ticket.atendente_id = dado.id_usuario
         ticket.data_atualizacao = agora()
-        # salvar as modificacoes do ticket
+        # Salvar as modificações do ticket
         self.db.commit()
         return ticket
-
 
     def associar(self, id: int, dado: TicketAssociar) -> Ticket:
         ticket = self.obter_por_id(id)
         usuario = self.usuario_service.obter_por_id(dado.id_usuario)
         if usuario.papel != Papel.ATENDENTE:
-            raise PermissaoNegadaError("Somente tickets abertos podem ser associados")
+            raise PermissaoNegadaError("Somente usuário com papel " \
+            "ATENDENTE podem ser atribuidos a ticket")
+
+        if ticket.status != StatusChamado.ABERTO:
+            raise RegraNegocioError("Somente tickets abertos podem ser associados")
 
         ticket.atendente_id = dado.id_usuario
         ticket.status = StatusChamado.EM_ANALISE
@@ -98,7 +109,7 @@ class TicketService:
 
         if ticket.status != StatusChamado.EM_ANALISE:
             raise RegraNegocioError("Somente tickets em análise podem ser resolvidos")
-
+        
         ticket.descricao_solucao = dado.descricao
         ticket.status = StatusChamado.RESOLVIDO
         ticket.data_atualizacao = agora()
@@ -108,16 +119,16 @@ class TicketService:
 
     def cancelar(self, id: int, dado: TicketCancelar) -> Ticket:
         ticket = self.obter_por_id(id)
-        uusario = self.usuario_service.obter_por_id(dado.id_usuario)
+        usuario = self.usuario_service.obter_por_id(dado.id_usuario)
 
         if ticket.status == StatusChamado.RESOLVIDO:
             raise RegraNegocioError("Tickets resolvidos não podem ser cancelados")
 
         if ticket.status == StatusChamado.CANCELADO:
-            raise RegraNegocioError("Ticket ja esta cancelado")
-
+            raise RegraNegocioError("Ticket já está cancelado")
+        
         ticket.motivo_cancelamento = dado.motivo
-        ticket. status = StatusChamado. CANCELADO
+        ticket.status = StatusChamado.CANCELADO
         ticket.data_atualizacao = agora()
         self.db.commit()
         return ticket

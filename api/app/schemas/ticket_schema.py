@@ -22,8 +22,6 @@ class TicketCriar(BaseModel):
         }
     )
 
-
-
 class TicketDefinirPrioridade(BaseModel):
     id_usuario: int = Field(alias="idUsuario")
     prioridade: PrioridadeChamado
