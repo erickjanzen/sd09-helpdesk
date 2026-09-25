@@ -17,3 +17,5 @@ app.include_router(ticket_router)
 # Executar
 # uvicorn app.main:app --reload
 # Chrome: localhost:8000/docs
+
+# teste zika vamo ver se vai
