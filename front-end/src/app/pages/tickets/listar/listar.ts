@@ -1,20 +1,45 @@
 import { Component, inject, signal } from '@angular/core';
 import { TicketService } from '../../../services/ticket.service';
-import { TicketResposta } from '../../../layout/navbar/models/ticket.model';
+import { TicketAssociar, TicketResposta } from '../../../layout/navbar/models/ticket.model';
+import { RouterLink } from '@angular/router';
+import { UsuarioResposta } from '../../../layout/navbar/models/usuarios.model';
+import { FormsModule } from '@angular/forms';
+import { Modal } from '../../../shared/modal/modal';
+import { UsuarioService } from '../../../services/usuario.service';
+
 
 @Component({
-  imports: [],
+  imports: [RouterLink, Modal, FormsModule],
   selector: 'app-listar',
   styleUrl: './listar.scss',
   templateUrl: './listar.html',
 })
 export class Listar {
   ticketService = inject(TicketService);
+  usuarioService = inject(UsuarioService)
 
   tickets = signal<TicketResposta[]>([]);
+  modalAssociarAberta = signal<boolean>(false);
+  ticketAssociar: TicketAssociar = {
+    idUsuario: null
+  }
+  usuarios = signal<UsuarioResposta[]>([]);
+  ticketSelecionado = signal<number | null>(null);
 
   ngOnInit(){
     this.carregarTickets();
+    this.carregarUsuarios();
+  }
+
+
+  carregarUsuarios() {
+    this.usuarioService.listar().subscribe({
+      next: usuarios => this.usuarios.set(usuarios),
+      error: erro => {
+        console.error(erro);
+        alert("Não foi possível listar os usuários");
+      }
+    })
   }
 
   carregarTickets(){
@@ -23,6 +48,28 @@ export class Listar {
       error: (erro) => {
         console.error(erro);
         alert("Não foi possível carregar os tickets");
+      }
+    })
+  }
+
+  abrirModalAssociar(ticketId: number){
+    this.ticketSelecionado.set(ticketId);
+    this.modalAssociarAberta.set(true)
+  }
+
+  associar(){
+    this.ticketService.associar(this.ticketSelecionado()!, this.ticketAssociar).subscribe({
+      next: () => {
+        this.modalAssociarAberta.set(false);
+        this.ticketAssociar = {
+          idUsuario: null
+        };
+        alert("Ticket associado com sucesso");
+        this.carregarTickets();
+      },
+      error: erro => {
+        console.error(erro);
+        alert("Não foi possível associar o ticket");
       }
     })
   }

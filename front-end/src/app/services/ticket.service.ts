@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { Observable } from 'rxjs';
-import { TicketResposta } from '../layout/navbar/models/ticket.model';
+import { TicketAssociar, TicketCadastro, TicketResposta } from '../layout/navbar/models/ticket.model';
 
 @Service()
 export class TicketService {
@@ -15,5 +15,13 @@ export class TicketService {
     // fnucao que sera responsavel por comunicar com o back para obter lista de tickets
     listar(): Observable<TicketResposta[]>{
         return this.http.get<TicketResposta[]>(this.baseUrl);
+    }
+
+    cadastrar(ticket: TicketCadastro): Observable<TicketResposta>{
+        return this.http.post<TicketResposta>(this.baseUrl, ticket);
+    }
+
+    associar(id: number, ticket: TicketAssociar): Observable<TicketResposta>{
+        return this.http.post<TicketResposta>(`${this.baseUrl}/${id}/associar`, ticket);
     }
 }
